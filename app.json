@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Refúgio 360",
+    "slug": "refugio-360",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "br.com.fiap.refugio360"
+    },
+    "ios": {
+      "bundleIdentifier": "br.com.fiap.refugio360",
+      "supportsTablet": true
+    },
+    "plugins": ["expo-secure-store"]
+  }
+}
