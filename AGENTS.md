@@ -31,10 +31,14 @@
 ## Sessão
 
 - Armazene o JWT exclusivamente com Expo SecureStore.
+- Persista token e `expiresAt`; nunca persista senha.
 - Restaure a sessão validando o token com a API, não apenas pela presença local.
 - Em `401`, encerre a sessão e volte ao login.
+- Não encerre uma sessão existente por `401` retornado por login ou cadastro.
+- Configure autenticação pelo binding único de `configureJavaAuth`; não registre interceptors em telas.
 - Não implemente refresh token enquanto o backend não oferecer esse contrato.
 - Logout local deve apagar token, perfil, caches privados e estado de navegação.
+- O modo preview deve existir somente com `__DEV__` e nunca liberar mutações protegidas.
 
 ## Interface
 
@@ -49,6 +53,7 @@
 
 - Mantenha TypeScript estrito e evite `any`.
 - Execute `npm run typecheck`, `npm run lint` e `npm run format:check` antes de concluir alterações.
+- Execute `npm test` para toda alteração em sessão, clientes HTTP ou autenticação.
 - Use `npx expo install` para dependências nativas compatíveis com o SDK atual.
 - Não adicione Redux, bibliotecas de formulário, cache remoto ou testes sem uma necessidade do incremento.
 - Não versione `.env`, credenciais, tokens, keystores ou arquivos de assinatura.

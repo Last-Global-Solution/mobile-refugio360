@@ -1,6 +1,6 @@
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '../../components/AppButton';
 import { BrandHeader } from '../../components/BrandHeader';
@@ -24,23 +24,35 @@ function ConfigRow({ label, configured }: { label: string; configured: boolean }
 }
 
 export function ProfileScreen({ navigation }: Props) {
-  const { mode, leaveSession } = useSession();
+  const { isAuthenticated, mode, logout, user } = useSession();
   const appNavigation = navigation.getParent<NativeStackNavigationProp<AppStackParamList>>();
+
+  const confirmLogout = () => {
+    if (!isAuthenticated) {
+      void logout();
+      return;
+    }
+
+    Alert.alert('Sair da conta?', 'Você precisará informar e-mail e senha para entrar novamente.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Sair', style: 'destructive', onPress: () => void logout() },
+    ]);
+  };
 
   return (
     <Screen>
       <BrandHeader
-        description="Preferências e informações da sessão ficarão concentradas aqui."
+        description="Consulte os dados de acesso associados à sua sessão."
         eyebrow="CONTA"
         title="Perfil"
       />
 
       <View style={styles.statusCard}>
-        <Text style={styles.statusTitle}>Estado atual</Text>
+        <Text style={styles.statusTitle}>
+          {mode === 'preview' ? 'Modo de visualização' : user?.email}
+        </Text>
         <Text style={styles.statusText}>
-          {mode === 'preview'
-            ? 'Visualização sem usuário autenticado.'
-            : 'Sessão preparada para integração futura.'}
+          {mode === 'preview' ? 'Nenhum usuário está autenticado.' : `Perfil: ${user?.papel}`}
         </Text>
       </View>
 
@@ -58,7 +70,7 @@ export function ProfileScreen({ navigation }: Props) {
         />
         <AppButton
           label={mode === 'preview' ? 'Sair da visualização' : 'Sair'}
-          onPress={leaveSession}
+          onPress={confirmLogout}
           variant="danger"
         />
       </View>

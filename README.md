@@ -4,16 +4,20 @@ Aplicativo React Native do Refúgio 360, projeto acadêmico da Global Solution 2
 
 ## Estado atual
 
-Este repositório contém o Incremento 1 do mobile:
+Este repositório contém o Incremento 2 do mobile:
 
 - shell Expo com TypeScript;
 - navegação pública e área principal;
 - oito áreas de tela previstas no escopo;
 - tema e componentes de estado reutilizáveis;
-- clientes HTTP preparados, ainda sem chamadas;
-- armazenamento seguro preparado, ainda sem sessão real.
+- cadastro e login integrados à API Java;
+- sessão JWT persistida com Expo SecureStore;
+- restauração da sessão validada por `/api/auth/me`;
+- logout local e tratamento global de expiração;
+- clientes Java autenticado e .NET público isolados;
+- testes automatizados da autenticação e da sessão.
 
-Autenticação, CRUD e consumo das APIs ainda não estão implementados. O botão de visualização da tela de login abre a área principal em um modo explicitamente identificado, sem criar usuário ou sessão fictícia.
+O CRUD e as consultas de domínio ainda não estão implementados. Em desenvolvimento, o botão de visualização abre a área principal sem criar sessão e sem liberar operações protegidas.
 
 ## Tecnologias
 
@@ -72,7 +76,32 @@ EXPO_PUBLIC_DOTNET_API_URL=https://dotnet-api.exemplo.com
 - Não use `localhost` como URL para aparelho físico. Em desenvolvimento local, use um endereço de rede acessível pelo dispositivo ou o endereço apropriado do emulador.
 - Prefira HTTPS em ambientes compartilhados e publicados.
 
-O aplicativo inicia sem essas variáveis porque não realiza chamadas neste incremento. A tela de perfil mostra se cada URL foi configurada.
+`EXPO_PUBLIC_JAVA_API_URL` é obrigatória para cadastro, login e restauração da sessão. A URL .NET poderá permanecer ausente até a integração de alertas. A tela de perfil mostra se cada URL foi configurada.
+
+## Autenticação
+
+Contratos utilizados:
+
+```text
+POST /api/auth/register
+POST /api/auth/login
+GET  /api/auth/me
+```
+
+Cadastro e login enviam somente `email` e `senha`. A resposta contém o JWT, sua expiração e o perfil do usuário. A senha nunca é persistida pelo aplicativo.
+
+Para testar manualmente:
+
+1. Configure `EXPO_PUBLIC_JAVA_API_URL` com uma API Java alcançável pelo dispositivo.
+2. Inicie o Expo com `npm start`.
+3. Crie uma conta com e-mail válido e senha entre 8 e 72 caracteres.
+4. Confirme a entrada automática na área principal.
+5. Feche e reabra o aplicativo para validar a restauração via `/api/auth/me`.
+6. Use a tela Perfil para encerrar a sessão.
+
+O JWT local dura uma hora. O aplicativo salva `accessToken` e `expiresAt` no SecureStore, rejeita localmente tokens expirados e confirma tokens válidos em `/api/auth/me`. Como o backend não oferece refresh token, uma sessão expirada retorna o usuário ao login.
+
+O interceptor adiciona Bearer somente às chamadas Java protegidas. Login e cadastro não recebem token, e o cliente público .NET nunca recebe a credencial Java.
 
 ## Execução
 
@@ -90,11 +119,12 @@ O comando para iOS requer macOS e Xcode. O suporte web pode exigir dependências
 ```bash
 npm run typecheck
 npm run lint
+npm test
 npm run format:check
 npm run format
 ```
 
-Não há biblioteca ou suíte de testes automatizados neste incremento. A estrutura por features e os componentes sem dependência das APIs permitem adicionar testes quando os primeiros fluxos de negócio forem implementados.
+Os testes usam Jest e Axios Mock Adapter. Eles não dependem de credenciais, rede ou serviços externos.
 
 ## Navegação
 
@@ -113,24 +143,24 @@ Não há biblioteca ou suíte de testes automatizados neste incremento. A estrut
 - Perfil
 - Sobre
 
-A troca entre as áreas usa atualmente o modo de visualização. A futura sessão autenticada substituirá essa transição sem alterar a estrutura dos navegadores.
+A sessão autenticada troca automaticamente o fluxo público pela área principal. Durante a restauração, uma tela de carregamento impede flashes de conteúdo protegido. O modo de visualização permanece disponível somente em desenvolvimento.
 
 ## Limitações
 
-- Login e cadastro não enviam dados.
-- Não há token, usuário autenticado ou logout de servidor.
-- Não existem chamadas às APIs.
+- Não existe refresh token.
+- O logout é local; um token copiado continua válido no servidor até expirar.
+- Não há recuperação ou alteração de senha.
+- Não há edição de perfil.
 - Não há CRUD de ocorrências.
 - As telas de dados exibem estados informativos, não mocks.
 - Não há detalhes de ocorrência, local ou alerta neste incremento.
-- Não há testes automatizados nem configuração do Firebase App Distribution.
+- Não há configuração do Firebase App Distribution.
 - O aplicativo ainda não foi validado em aparelho físico.
 
 ## Próximos passos
 
-1. Implementar cadastro e login pela API Java.
-2. Persistir o JWT com SecureStore e restaurar a sessão via `/api/auth/me`.
-3. Adicionar o token somente ao cliente Java.
-4. Implementar listagem, criação e detalhe de ocorrências.
-5. Conectar locais seguros e alertas públicos.
-6. Preparar build Android e Firebase App Distribution.
+1. Implementar listagem paginada e detalhe das próprias ocorrências.
+2. Implementar criação de ocorrência com bloqueio de submissão duplicada.
+3. Conectar edição e exclusão quando as permissões Java estiverem prontas.
+4. Conectar locais seguros e alertas públicos.
+5. Preparar build Android e Firebase App Distribution.
