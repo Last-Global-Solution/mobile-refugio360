@@ -18,7 +18,9 @@ export function HomeScreen({ navigation }: Props) {
       {mode === 'preview' ? (
         <View style={styles.previewBanner}>
           <Text style={styles.previewTitle}>Visualização da estrutura</Text>
-          <Text style={styles.previewText}>APIs e autenticação ainda não estão conectadas.</Text>
+          <Text style={styles.previewText}>
+            Recursos protegidos permanecem bloqueados; consultas públicas continuam disponíveis.
+          </Text>
         </View>
       ) : null}
 

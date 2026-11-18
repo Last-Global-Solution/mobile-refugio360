@@ -27,6 +27,15 @@
 - Não fixe `localhost`, IPs ou URLs de produção no código.
 - Trate os contratos Java paginados por `content`; endpoints públicos .NET retornam arrays.
 - Preserve timeouts e normalize falhas de rede antes de apresentá-las ao usuário.
+- Para ocorrências do cidadão, use somente `/api/ocorrencias/minhas`; não troque pela listagem comunitária.
+- O backend ainda não valida ownership em `GET /api/ocorrencias/{id}`. Abra detalhes somente a partir de IDs retornados por `/minhas` e não exponha deep links para essa rota até a correção Java.
+- O autor da ocorrência vem do JWT. Nunca envie usuário, autor ou status no payload de criação.
+- Não faça retry automático de `POST /api/ocorrencias`; bloqueie submissões concorrentes no cliente.
+- Consulte orientações somente por `GET /api/ocorrencias/{id}/orientacoes`, usando o `javaClient` autenticado e lendo `content` da página Spring.
+- Uma página de orientações vazia não comprova falha da IA. Apresente indisponibilidade sem inventar estado de processamento.
+- Nunca acesse Gemini pelo Mobile nem crie outra autenticação para IA.
+- Não chame `POST /api/ai/ocorrencias/{id}/orientacao` automaticamente, durante polling, refresh ou recuperação de erro. Cada chamada pode persistir outra orientação.
+- Polling de orientações deve ter backoff limitado, parar ao encontrar conteúdo ou receber erro e ser cancelado ao desmontar a tela ou encerrar a sessão.
 
 ## Sessão
 
@@ -44,10 +53,12 @@
 
 - Toda tela remota deve tratar loading, erro, vazio e refresh.
 - Toda mutação deve tratar submitting e impedir toques duplicados.
+- Listas paginadas devem preservar refresh manual, estado vazio e fim de paginação.
 - Use áreas de toque com pelo menos 44 pontos.
 - Mantenha contraste, rótulos de acessibilidade e mensagens em português claro.
 - Não apresente dados fictícios como se viessem das APIs.
 - Não remova o aviso de que o aplicativo não substitui canais oficiais de emergência.
+- Diferencie orientação gerada por IA de fallback local, mas trate ambas como conteúdo informativo e nunca como alerta oficial confirmado.
 
 ## Qualidade
 

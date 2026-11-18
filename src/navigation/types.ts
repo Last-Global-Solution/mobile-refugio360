@@ -8,7 +8,7 @@ export type AuthStackParamList = {
 
 export type MainTabParamList = {
   Home: undefined;
-  Occurrences: undefined;
+  Occurrences: { refreshKey?: number } | undefined;
   SafeLocations: undefined;
   Alerts: undefined;
   Profile: undefined;
@@ -17,4 +17,8 @@ export type MainTabParamList = {
 export type AppStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList>;
   About: undefined;
+  NewOccurrence: undefined;
+  OccurrenceDetail: { occurrenceId: number };
+  SafeLocationDetail: { locationId: number };
+  AlertDetail: { alertId: string };
 };

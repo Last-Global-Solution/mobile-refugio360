@@ -8,10 +8,18 @@ type StatePanelProps = {
   title: string;
   message: string;
   actionLabel?: string;
+  actionDisabled?: boolean;
   onAction?: () => void;
 };
 
-export function StatePanel({ state, title, message, actionLabel, onAction }: StatePanelProps) {
+export function StatePanel({
+  state,
+  title,
+  message,
+  actionLabel,
+  actionDisabled,
+  onAction,
+}: StatePanelProps) {
   return (
     <View accessibilityRole={state === 'error' ? 'alert' : undefined} style={styles.container}>
       <View style={[styles.symbol, state === 'error' && styles.errorSymbol]}>
@@ -24,7 +32,12 @@ export function StatePanel({ state, title, message, actionLabel, onAction }: Sta
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
       {actionLabel && onAction ? (
-        <AppButton label={actionLabel} onPress={onAction} variant="secondary" />
+        <AppButton
+          disabled={actionDisabled}
+          label={actionLabel}
+          onPress={onAction}
+          variant="secondary"
+        />
       ) : null}
     </View>
   );
