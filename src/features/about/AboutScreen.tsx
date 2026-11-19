@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { BrandHeader } from '../../components/BrandHeader';
@@ -11,6 +12,12 @@ const principles = [
 ];
 
 export function AboutScreen() {
+  const buildCommit = Constants.expoConfig?.extra?.buildCommit;
+  const commit =
+    typeof buildCommit === 'string' && /^[0-9a-f]{40}$/.test(buildCommit)
+      ? buildCommit
+      : 'Não identificado';
+
   return (
     <Screen>
       <BrandHeader
@@ -35,6 +42,15 @@ export function AboutScreen() {
             <Text style={styles.principle}>{principle}</Text>
           </View>
         ))}
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.heading}>Identificação da entrega</Text>
+        <Text style={styles.body}>FIAP · Global Solution 2026/2</Text>
+        <Text style={styles.body}>Versão: {Constants.expoConfig?.version ?? 'Não informada'}</Text>
+        <Text selectable style={styles.commit}>
+          Commit do APK: {__DEV__ ? 'Disponível na versão instalada' : commit}
+        </Text>
       </View>
 
       <Text style={styles.disclaimer}>
@@ -83,6 +99,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: typography.label,
     lineHeight: 21,
+  },
+  commit: {
+    color: colors.textMuted,
+    fontSize: typography.caption,
+    lineHeight: 18,
+    flexShrink: 1,
   },
   disclaimer: {
     color: colors.danger,

@@ -12,6 +12,12 @@
       "bundleIdentifier": "br.com.fiap.refugio360",
       "supportsTablet": true
     },
-    "plugins": ["expo-secure-store"]
+    "plugins": ["expo-secure-store"],
+    "extra": {
+      "eas": {
+        "projectId": "ec4f2ed5-fc41-44d0-9b02-b9f362eba8db"
+      }
+    },
+    "owner": "murilomacedosilva"
   }
 }

@@ -69,3 +69,11 @@
 - Não adicione Redux, bibliotecas de formulário, cache remoto ou testes sem uma necessidade do incremento.
 - Não versione `.env`, credenciais, tokens, keystores ou arquivos de assinatura.
 - Atualize o README quando comandos, variáveis ou arquitetura mudarem.
+
+## Entrega Android
+
+- Para Expo Go, use `.env` ignorado pelo Git. O perfil `preview` de `eas.json` contém as URLs HTTPS públicas do Render; não dependa do `.env` no EAS.
+- O projeto EAS vinculado é `@murilomacedosilva/refugio-360`. Preserve `br.com.fiap.refugio360` e nunca vincule outro projeto Expo sem conferir o ID em `app.json`.
+- Gere APK com `eas build --platform android --profile preview`; mantenha `distribution: internal`, `buildType: apk` e assinatura remota pelo EAS.
+- `cli.requireCommit=true` exige Git limpo antes do build. `app.config.js` injeta o SHA completo do checkout em `extra.buildCommit`; a tela Sobre lê esse valor com `expo-constants`. Não grave um hash fixo em arquivo versionado nem compile alterações não commitadas como se fossem parte do commit.
+- Execute typecheck, lint, format:check, Jest, Expo Doctor, `expo install --check` e export Android antes de solicitar o build. Confira o commit no painel EAS e na tela Sobre do APK instalado.

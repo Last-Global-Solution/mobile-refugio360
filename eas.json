@@ -1,0 +1,20 @@
+{
+  "cli": {
+    "requireCommit": true,
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "environment": "preview",
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_JAVA_API_URL": "https://java-refugio360-b723.onrender.com",
+        "EXPO_PUBLIC_DOTNET_API_URL": "https://dotnet-refugio-360.onrender.com"
+      },
+      "android": {
+        "buildType": "apk",
+        "credentialsSource": "remote"
+      }
+    }
+  }
+}

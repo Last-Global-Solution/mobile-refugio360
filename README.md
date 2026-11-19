@@ -76,8 +76,8 @@ Edite `.env` com URLs alcançáveis pelo dispositivo. O arquivo não deve conter
 ## Configuração das APIs
 
 ```dotenv
-EXPO_PUBLIC_JAVA_API_URL=https://java-api.exemplo.com
-EXPO_PUBLIC_DOTNET_API_URL=https://dotnet-api.exemplo.com
+EXPO_PUBLIC_JAVA_API_URL=https://java-refugio360-b723.onrender.com
+EXPO_PUBLIC_DOTNET_API_URL=https://dotnet-refugio-360.onrender.com
 ```
 
 - A API Java será usada para autenticação, usuários, ocorrências, locais seguros, pontos de risco e orientações.
@@ -85,6 +85,8 @@ EXPO_PUBLIC_DOTNET_API_URL=https://dotnet-api.exemplo.com
 - O cliente .NET não recebe o token da sessão Java.
 - Não use `localhost` como URL para aparelho físico. Em desenvolvimento local, use um endereço de rede acessível pelo dispositivo ou o endereço apropriado do emulador.
 - Prefira HTTPS em ambientes compartilhados e publicados.
+
+Para o APK de entrega, o perfil `preview` de `eas.json` contém essas mesmas URLs públicas e usa o ambiente EAS `preview`. O `.env` local é ignorado pelo Git e serve ao Expo Go; não configura sozinho um build remoto. As URLs são bases sem `/api`: os clientes acrescentam `/api/locais-seguros`, `/api/auth`, `/api/ocorrencias` ou `/api/v1/alertas`, conforme o serviço.
 
 `EXPO_PUBLIC_JAVA_API_URL` é obrigatória para autenticação, ocorrências e locais seguros. `EXPO_PUBLIC_DOTNET_API_URL` é obrigatória para alertas. A tela de perfil mostra se cada URL foi configurada. Quando uma URL estiver ausente ou o serviço correspondente estiver indisponível, somente essa área exibe erro com retry; o aplicativo não substitui a resposta por dados fictícios.
 
@@ -128,7 +130,7 @@ dotnet restore
 dotnet run
 ```
 
-Em Development, o serviço normalmente escuta em `http://localhost:5000`. No Android Emulator, configure `EXPO_PUBLIC_DOTNET_API_URL=http://10.0.2.2:5000`; em aparelho físico, use o IP do computador na rede local. O banco SQLite de desenvolvimento inclui um alerta publicado explicitamente identificado como demonstração. Consulte o README do backend .NET para os requisitos do SDK .NET 10 e a configuração opcional dos User Secrets.
+Em Development, o serviço normalmente escuta em `http://localhost:5000`. No Android Emulator, configure `EXPO_PUBLIC_DOTNET_API_URL=http://10.0.2.2:5000`; em aparelho físico, use o IP do computador na rede local. Com `DemoData__Enabled=true`, o SQLite inclui um alerta publicado explicitamente identificado como demonstração. Consulte o README do backend .NET para os requisitos do SDK .NET 10 e a configuração opcional dos User Secrets.
 
 No Android 17/API 37, o Expo Go precisa da permissão de rede local para alcançar `10.0.2.2`. Depois que o Expo Go estiver instalado no AVD, conceda-a com:
 
@@ -255,6 +257,21 @@ npm run web
 
 O comando para iOS requer macOS e Xcode. O suporte web pode exigir dependências adicionais do Expo e não é o alvo principal deste incremento.
 
+## APK Android de entrega (EAS)
+
+O projeto Expo vinculado é `@murilomacedosilva/refugio-360` (ID em `app.json`); o identificador Android é `br.com.fiap.refugio360` e a versão é `0.1.0`. `eas.json` usa o perfil **`preview`**, `distribution: internal`, `android.buildType: apk`, assinatura gerenciada pelo EAS e as duas URLs públicas HTTPS. Não exige Metro ou Expo Go depois de instalado.
+
+Antes do build, execute `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npx expo-doctor`, `npx expo install --check` e `npx expo export --platform android` (o export local usa o `.env`). **Revise, faça commit das alterações e mantenha o Git limpo**: `cli.requireCommit=true` impede embutir um hash antigo em um APK com alterações não commitadas. O `app.config.js` consulta `git rev-parse HEAD` no checkout usado pelo EAS e grava o SHA completo em `extra.buildCommit`, lido pela tela Sobre via `expo-constants`. Não escreva esse SHA manualmente em um arquivo versionado: isso mudaria o próprio commit. Após instalar, compare o valor exibido em Sobre com o commit do build na página EAS e com `git rev-parse HEAD` do commit enviado. Em Expo Go, a tela identifica a execução como desenvolvimento em vez de atribuir o APK a um commit não compilado.
+
+```bash
+eas project:info --non-interactive
+eas build --platform android --profile preview --wait
+```
+
+Na primeira execução, siga a interação do EAS para criar ou selecionar a **keystore Android remota**; não registre material de assinatura no Git. Quando o build terminar com status `finished`, use o link real do artefato `.apk` indicado pelo EAS, baixe-o no Android e permita a instalação de apps dessa origem quando solicitado. Confirme que o aplicativo abre sem Expo Go, mostra os dados DEMO das APIs e exibe versão e SHA na tela Sobre. Para inspecionar builds existentes, use `eas build:list --platform android`; não presuma que um APK existe antes de o build concluir.
+
+Serviços gratuitos do Render podem levar alguns instantes para acordar. Se uma consulta exceder o timeout do cliente, use o retry manual da tela; orientações automáticas dependem do RabbitMQ no Java e podem não aparecer. H2 e SQLite nos planos gratuitos não garantem persistência após reinício/redeploy.
+
 ## Qualidade
 
 ```bash
@@ -302,14 +319,14 @@ A sessão autenticada troca automaticamente o fluxo público pela área principa
 - Coordenadas são informadas manualmente; não há GPS automático.
 - As telas de dados exibem estados informativos, não mocks.
 - A abertura de mapas depende de um aplicativo ou navegador capaz de tratar a URL externa.
-- A API .NET de Development inclui conteúdo acadêmico fictício claramente rotulado; ele não representa um alerta real.
+- Com o seed .NET explicitamente habilitado, o serviço inclui conteúdo acadêmico fictício claramente rotulado; ele não representa um alerta real.
 - Não há configuração do Firebase App Distribution.
-- O aplicativo foi validado visualmente no Expo Go 58.0.5 em Android 17/API 37. A validação em aparelho físico permanece pendente.
+- O aplicativo foi validado em dispositivo físico com Expo Go. A instalação e validação do APK independente permanecem pendentes até a conclusão do EAS Build.
 
 ## Próximos passos
 
-1. Corrigir no Java a autorização por ownership do detalhe de ocorrência.
-2. Repetir o fluxo visual completo em aparelho físico.
+1. Concluir o EAS Build do perfil `preview` após registrar as alterações em commit.
+2. Instalar o APK e repetir o fluxo visual completo em aparelho físico.
 3. Validar visualmente a geração assíncrona com RabbitMQ e uma ocorrência descartável.
 4. Conectar edição e exclusão quando as permissões Java estiverem prontas.
-5. Preparar build Android e Firebase App Distribution.
+5. Preparar Firebase App Distribution em etapa posterior, se necessário.
