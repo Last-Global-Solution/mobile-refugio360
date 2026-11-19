@@ -1,332 +1,171 @@
-# Refúgio 360 Mobile
+<div align="center">
 
-Aplicativo React Native do Refúgio 360, projeto acadêmico da Global Solution 2026/2 da FIAP. A plataforma busca apoiar cidadãos durante emergências, inicialmente enchentes, por meio de ocorrências, locais seguros, alertas e orientações.
+# Refúgio 360
 
-## Estado atual
+**Informação comunitária para apoiar decisões em situações de risco.**
 
-Este repositório contém o Incremento 7 do mobile:
+Aplicativo da **Global Solution 2026/2 · FIAP**, desenvolvido com React Native, Expo e TypeScript.
 
-- shell Expo com TypeScript;
-- navegação pública e área principal;
-- oito áreas de tela previstas no escopo;
-- tema e componentes de estado reutilizáveis;
-- cadastro e login integrados à API Java;
-- sessão JWT persistida com Expo SecureStore;
-- restauração da sessão validada por `/api/auth/me`;
-- logout local e tratamento global de expiração;
-- clientes Java autenticado e .NET público isolados;
-- listagem paginada das ocorrências do usuário;
-- criação e detalhe de ocorrências;
-- consulta paginada de orientações assíncronas no detalhe da ocorrência;
-- polling limitado e cancelável após a abertura do detalhe;
-- identificação visual de orientação gerada por IA ou fallback local;
-- listagem paginada e detalhe de locais seguros da API Java;
-- listagem e detalhe de alertas públicos da API .NET;
-- abertura de coordenadas de locais em um aplicativo externo de mapas;
-- contratos de autenticação e ocorrências validados contra uma API Java local real;
-- execução visual validada no Android Emulator, incluindo sessão real e restauração pelo SecureStore;
-- testes automatizados da autenticação, sessão, ocorrências, orientações, locais seguros e alertas.
+![Expo](https://img.shields.io/badge/Expo-SDK%2058-000020?logo=expo)
+![React Native](https://img.shields.io/badge/React%20Native-0.88-61DAFB?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript)
 
-A edição e a exclusão ainda não estão implementadas porque dependem de ajustes de autorização no backend Java. Em desenvolvimento, o botão de visualização abre a área principal sem criar sessão e sem liberar chamadas protegidas.
+</div>
 
-## Tecnologias
+Em enchentes e alagamentos, informações importantes podem estar dispersas. O Refúgio 360 reúne relatos enviados pelos cidadãos, locais de apoio cadastrados, orientações associadas às ocorrências e alertas públicos em uma interface acessível a quem precisa consultar essas informações. **É um protótipo acadêmico, não um serviço oficial de emergência.**
 
-- Expo SDK 58
-- React Native 0.88
-- React 19
-- TypeScript 6 em modo estrito
-- React Navigation 7
-- Axios
-- React Native Safe Area Context
-- Expo SecureStore
-- ESLint e Prettier
+## Neste README
 
-## Estrutura
+- [Funcionalidades](#funcionalidades)
+- [Arquitetura e serviços](#arquitetura-e-serviços)
+- [Estrutura do projeto](#estrutura-do-projeto)
+- [Instalação e desenvolvimento](#instalação-e-desenvolvimento)
+- [Qualidade e testes](#qualidade-e-testes)
+- [APK Android com EAS Build](#apk-android-com-eas-build)
+- [Demonstração em vídeo](#-demonstração-em-vídeo)
+- [Equipe e responsabilidade](#equipe-e-responsabilidade)
+
+## Funcionalidades
+
+- **Acesso:** cadastro de cidadãos, login JWT pela API Java, restauração da sessão validada pela API e logout local. O token fica no Expo SecureStore; a senha não é armazenada no aplicativo.
+- **Locais seguros:** lista paginada, detalhe com endereço e coordenadas, atualização manual e abertura em aplicativo de mapas.
+- **Ocorrências:** registro de relatos com urgência e coordenadas; lista paginada **Minhas ocorrências** e detalhe dos relatos do usuário.
+- **Orientações:** consulta paginada no detalhe da ocorrência, com espera limitada e distinção entre resultado gerado por IA e fallback local.
+- **Alertas públicos:** lista e detalhe dos alertas publicados pela API .NET, incluindo identificação visual de conteúdo DEMO.
+- **Navegação:** Início, Minhas ocorrências, Locais seguros, Alertas, Perfil e Sobre; Login, Cadastro e Sobre também estão disponíveis antes do acesso.
+
+O aplicativo **não** implementa edição/exclusão de ocorrências nem gera orientações por conta própria. Para orientações automáticas, a API Java precisa conseguir publicar e consumir eventos no RabbitMQ. Gemini é opcional no backend; sem broker, uma orientação pode não aparecer, mesmo havendo fallback local para quando a geração for acionada. A disponibilidade dessa cadeia **não está confirmada** no serviço hospedado.
+
+## Arquitetura e serviços
+
+```mermaid
+flowchart LR
+    M["Mobile · React Native / Expo"]
+
+    subgraph J["API Java · Spring Boot"]
+        JWT["JWT e cadastro"]
+        OC["Ocorrências"]
+        LS["Locais seguros"]
+        OR["Orientações"]
+        H2[("H2")]
+        JWT --> H2
+        OC --> H2
+        LS --> H2
+        OR --> H2
+    end
+
+    subgraph N["API .NET · ASP.NET Core"]
+        AL["Alertas públicos"]
+        SQL[("SQLite")]
+        AL --> SQL
+    end
+
+    M -->|"JWT Java: acesso e relatos"| JWT
+    M -->|"Relatos"| OC
+    M -->|"Consulta de orientações"| OR
+    M -->|"Consulta pública"| LS
+    M -->|"GET público, sem JWT Java"| AL
+    OC -.->|"evento, se broker disponível"| R["RabbitMQ"]
+    R -.->|"processamento assíncrono"| OR
+    OR -.->|"provedor opcional"| G["Gemini"]
+```
+
+O Mobile mantém clientes HTTP separados em `src/api/clients.ts`: `javaClient` acessa recursos Java, enquanto `dotnetPublicClient` consulta somente alertas públicos e **não recebe o JWT Java**. As coleções Java são páginas Spring (campo `content`); os alertas .NET vêm em um array JSON.
+
+| Serviço de demonstração no Render                     | Responsabilidade                                          | Consultas públicas usadas pelo app                 |
+| ----------------------------------------------------- | --------------------------------------------------------- | -------------------------------------------------- |
+| [API Java](https://java-refugio360-b723.onrender.com) | Cadastro/login, ocorrências, locais seguros e orientações | `/api/locais-seguros` e `/api/locais-seguros/{id}` |
+| [API .NET](https://dotnet-refugio-360.onrender.com)   | Alertas publicados                                        | `/api/v1/alertas` e `/api/v1/alertas/{id}`         |
+
+Os seis locais `DEMO -` e o alerta `DEMO -` são **fictícios**: não comprovam capacidade, disponibilidade ou situação em tempo real. Instâncias gratuitas do Render podem demorar a responder após inatividade; as telas exibem estado de carregamento, erro e nova tentativa manual. Os clientes usam timeout de **10 s** (Java) e **8 s** (.NET), sem retry automático de criação de ocorrência. O H2 e o SQLite em filesystem efêmero **não garantem persistência** entre reinícios ou deploys.
+
+## Estrutura do projeto
 
 ```text
 src/
-  api/          clientes HTTP Java e .NET
-  components/   componentes visuais reutilizáveis
-  config/       configuração centralizada de ambiente
-  features/     telas organizadas por funcionalidade
-  navigation/   stacks, abas e tipos de navegação
-  session/      contexto e armazenamento seguro de sessão
-  theme/        cores, espaçamentos, tipografia e tema de navegação
-  types/        tipos compartilhados
-  utils/        normalização de erros e utilitários
+├── api/          # clientes HTTP e serviços para os endpoints reais
+├── components/   # botões, campos, cabeçalho e estados reutilizáveis
+├── config/       # leitura das URLs de ambiente
+├── features/     # auth, home, occurrences, locations, alerts, profile e about
+├── navigation/   # fluxos público/autenticado, pilha e abas
+├── session/      # contexto, ciclo de vida e armazenamento seguro do JWT
+├── theme/        # cores, tipografia e espaçamentos
+├── types/        # tipos dos contratos das APIs
+└── utils/        # formatação e tratamento de erros
 ```
 
-## Requisitos
+## Instalação e desenvolvimento
 
-- Node.js 20 ou superior
-- npm 10 ou superior
-- Expo Go compatível com SDK 58 ou emulador Android/iOS configurado
-
-O projeto foi instalado inicialmente com Node.js 24.14.0 e npm 11.9.0.
-
-## Instalação
+**Pré-requisitos:** Node.js 20+ e npm 10+ (projeto validado com Node 24.14.0 e npm 11.9.0), acesso às duas APIs e Expo Go compatível com SDK 58 em um aparelho Android ou emulador. Não é necessário instalar Expo CLI globalmente.
 
 ```bash
+git clone https://github.com/Last-Global-Solution/mobile-refugio360.git
+cd mobile-refugio360
 npm install
 cp .env.example .env
+npm start
 ```
 
-Edite `.env` com URLs alcançáveis pelo dispositivo. O arquivo não deve conter credenciais e não é versionado.
+Abra o QR code mostrado pelo Expo no **Expo Go**. Com um emulador Android configurado, `npm run android` também inicia o fluxo de desenvolvimento. O script `npm run ios` requer um ambiente iOS compatível. O aplicativo já foi validado em **dispositivo físico via Expo Go**.
 
-## Configuração das APIs
+### URLs de ambiente
+
+O arquivo `.env.example` contém as URLs HTTPS públicas usadas na entrega:
 
 ```dotenv
 EXPO_PUBLIC_JAVA_API_URL=https://java-refugio360-b723.onrender.com
 EXPO_PUBLIC_DOTNET_API_URL=https://dotnet-refugio-360.onrender.com
 ```
 
-- A API Java será usada para autenticação, usuários, ocorrências, locais seguros, pontos de risco e orientações.
-- A API .NET será usada somente para alertas públicos.
-- O cliente .NET não recebe o token da sessão Java.
-- Não use `localhost` como URL para aparelho físico. Em desenvolvimento local, use um endereço de rede acessível pelo dispositivo ou o endereço apropriado do emulador.
-- Prefira HTTPS em ambientes compartilhados e publicados.
+São **URLs-base**, sem `/api` ou `/api/v1`: os serviços do aplicativo acrescentam os caminhos necessários. `src/config/environment.ts` remove barras finais excedentes. O `.env` local é ignorado pelo Git, não deve conter segredos, tokens ou credenciais, e serve ao Expo Go; as mesmas URLs públicas estão configuradas diretamente no perfil `preview` de `eas.json` para o build remoto. Após mudar variáveis locais, reinicie o Metro (`npm start`; se necessário, `npx expo start --clear`).
 
-Para o APK de entrega, o perfil `preview` de `eas.json` contém essas mesmas URLs públicas e usa o ambiente EAS `preview`. O `.env` local é ignorado pelo Git e serve ao Expo Go; não configura sozinho um build remoto. As URLs são bases sem `/api`: os clientes acrescentam `/api/locais-seguros`, `/api/auth`, `/api/ocorrencias` ou `/api/v1/alertas`, conforme o serviço.
-
-`EXPO_PUBLIC_JAVA_API_URL` é obrigatória para autenticação, ocorrências e locais seguros. `EXPO_PUBLIC_DOTNET_API_URL` é obrigatória para alertas. A tela de perfil mostra se cada URL foi configurada. Quando uma URL estiver ausente ou o serviço correspondente estiver indisponível, somente essa área exibe erro com retry; o aplicativo não substitui a resposta por dados fictícios.
-
-## Integração Java local
-
-O backend declara Java 21 e usa Maven. Para validar sem alterar o banco local em arquivo, execute-o a partir do repositório Java com H2 em memória e uma porta alternativa:
+## Qualidade e testes
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.arguments="--server.address=0.0.0.0 --server.port=18081 --spring.datasource.url=jdbc:h2:mem:refugio360-integration --spring.jpa.hibernate.ddl-auto=create-drop --spring.h2.console.enabled=false --spring.rabbitmq.listener.simple.auto-startup=false --spring.rabbitmq.listener.direct.auto-startup=false --spring.rabbitmq.connection-timeout=250ms --spring.rabbitmq.template.retry.enabled=false"
+npm run typecheck       # TypeScript
+npm run lint            # ESLint
+npm run format:check    # Prettier
+npm test                # Jest
+npx expo-doctor         # diagnóstico Expo
+npx expo install --check # compatibilidade das dependências com o SDK
 ```
 
-Esse banco existe somente durante o processo Java. O console H2 fica desabilitado e nenhum dado do banco padrão `./data/refugio360` é utilizado. Use `127.0.0.1` em `server.address` se acesso pela rede local não for necessário.
+Os testes automatizados usam Jest e Axios Mock Adapter; não dependem das APIs hospedadas. Na última validação registrada da configuração Mobile, **94 testes Jest**, TypeScript, ESLint e Prettier passaram, e o Expo Doctor concluiu **20/20 verificações**. Isso não equivale a testar o APK instalado.
 
-O RabbitMQ não é necessário para cadastro, login, criação, persistência, listagem ou detalhe de ocorrências. Ele é necessário para que o evento de uma nova ocorrência gere automaticamente uma orientação. Sem o broker, o Java salva a ocorrência, mas a consulta de orientações pode permanecer vazia. Gemini é opcional: sem `GEMINI_API_KEY`, ou se o provedor falhar, o backend persiste uma orientação automática local com `geradoPorIA: false`.
+## APK Android com EAS Build
 
-Para validar a geração assíncrona, suba o RabbitMQ no repositório Java antes da API:
+**Expo Go** executa o aplicativo durante o desenvolvimento. O perfil **`preview`** do `eas.json` prepara um **APK de distribuição interna**, instalável sem Expo Go nem Metro, com `distribution: internal`, `android.buildType: apk`, ambiente EAS `preview` e assinatura Android gerenciada remotamente pelo EAS. O package Android é `br.com.fiap.refugio360`; a versão em `app.json` é `0.1.0`.
 
-```bash
-docker compose up -d
-./mvnw spring-boot:run
-```
-
-Esse comando usa a configuração de banco padrão do backend. Para testes descartáveis, configure um H2 em memória e mantenha os listeners RabbitMQ habilitados. O comando anterior desta seção, que define `spring.rabbitmq.listener.*.auto-startup=false`, valida ocorrências sem consumir a fila e, portanto, não gera orientações automaticamente.
-
-Configure a URL conforme o cliente que executará o Mobile:
-
-```dotenv
-# Android Emulator padrão
-EXPO_PUBLIC_JAVA_API_URL=http://10.0.2.2:18081
-
-# Aparelho físico na mesma rede, substituindo pelo IP do computador
-EXPO_PUBLIC_JAVA_API_URL=http://192.168.x.x:18081
-```
-
-No computador, `http://127.0.0.1:18081` acessa a mesma instância. Para aparelho físico, mantenha o Java em `0.0.0.0`, permita a porta no firewall local e confirme que computador e aparelho estão na mesma rede. HTTP deve ser restrito ao desenvolvimento local; ambientes compartilhados devem usar HTTPS.
-
-Para iniciar também a API .NET, abra outro terminal na pasta `dotnet-refugio-360/Refugio360.Api` e execute:
-
-```bash
-dotnet restore
-dotnet run
-```
-
-Em Development, o serviço normalmente escuta em `http://localhost:5000`. No Android Emulator, configure `EXPO_PUBLIC_DOTNET_API_URL=http://10.0.2.2:5000`; em aparelho físico, use o IP do computador na rede local. Com `DemoData__Enabled=true`, o SQLite inclui um alerta publicado explicitamente identificado como demonstração. Consulte o README do backend .NET para os requisitos do SDK .NET 10 e a configuração opcional dos User Secrets.
-
-No Android 17/API 37, o Expo Go precisa da permissão de rede local para alcançar `10.0.2.2`. Depois que o Expo Go estiver instalado no AVD, conceda-a com:
-
-```bash
-adb shell pm grant host.exp.exponent android.permission.ACCESS_LOCAL_NETWORK
-```
-
-Na primeira inicialização de um AVD com Play Store, aguarde as atualizações automáticas terminarem antes de avaliar estabilidade. Uma atualização do Android System WebView encerra processos que o utilizam e aparece no `adb logcat` como `killDueToPackageUpdate`; nesse caso, relance `npm run android` após a atualização. Isso é diferente de um crash JavaScript ou nativo do aplicativo.
-
-A validação real confirmou `201` no cadastro, `200` no login e em `/api/auth/me`, `201` na criação, `200` na listagem paginada e no detalhe, `400` para payload inválido, `401` para token ausente, inválido ou expirado, `404` para ID inexistente e `409` para e-mail duplicado. Os serviços Axios usados pelo aplicativo também completaram cadastro, consulta da sessão, criação, listagem e detalhe contra essa instância.
-
-## Autenticação
-
-Contratos utilizados:
-
-```text
-POST /api/auth/register
-POST /api/auth/login
-GET  /api/auth/me
-```
-
-Cadastro e login enviam somente `email` e `senha`. A resposta contém o JWT, sua expiração e o perfil do usuário. A senha nunca é persistida pelo aplicativo.
-
-Para testar manualmente:
-
-1. Configure `EXPO_PUBLIC_JAVA_API_URL` com uma API Java alcançável pelo dispositivo.
-2. Inicie o Expo com `npm start`.
-3. Crie uma conta com e-mail válido e senha entre 8 e 72 caracteres.
-4. Confirme a entrada automática na área principal.
-5. Feche e reabra o aplicativo para validar a restauração via `/api/auth/me`.
-6. Use a tela Perfil para encerrar a sessão.
-
-O JWT local dura uma hora. O aplicativo salva `accessToken` e `expiresAt` no SecureStore, rejeita localmente tokens expirados e confirma tokens válidos em `/api/auth/me`. Como o backend não oferece refresh token, uma sessão expirada retorna o usuário ao login.
-
-O interceptor adiciona Bearer somente às chamadas Java protegidas. Login e cadastro não recebem token, e o cliente público .NET nunca recebe a credencial Java.
-
-## Ocorrências
-
-Endpoints consumidos:
-
-```text
-GET  /api/ocorrencias/minhas
-GET  /api/ocorrencias/{id}
-POST /api/ocorrencias
-```
-
-A listagem usa páginas Spring com dez itens e ordenação `id,desc`. O botão “Carregar mais” solicita a próxima página, combina os registros pelo ID numérico e para quando `last` é verdadeiro. O gesto de atualizar recarrega a primeira página e substitui os dados locais.
-
-O formulário envia somente:
-
-```json
-{
-  "descricao": "Alagamento na via",
-  "urgencia": "ALTA",
-  "latitude": -23.55,
-  "longitude": -46.63,
-  "perfil": "GERAL"
-}
-```
-
-Valores aceitos:
-
-- urgência: `BAIXA`, `MEDIA`, `ALTA`, `CRITICA`;
-- perfil: `GERAL`, `IDOSO`, `PCD`, `FAMILIA`;
-- latitude: número entre -90 e 90;
-- longitude: número entre -180 e 180.
-
-O app não envia autor, usuário, ID ou status. O backend associa o autor pelo JWT. A criação não possui retry automático e usa um guard para impedir POSTs simultâneos. Após sucesso, o formulário sai da pilha e a listagem é recarregada.
-
-Falhas de rede, timeout e respostas `400`, `401`, `403`, `404` e `409` são traduzidas para mensagens de interface. Um `401` protegido também encerra a sessão pelo interceptor Java.
-
-## Orientações
-
-Endpoint autenticado consumido na API Java:
-
-```text
-GET /api/ocorrencias/{id}/orientacoes?page=0&size=10&sort=criadaEm,desc
-```
-
-A resposta é uma página Spring. Cada item contém `id`, `ocorrenciaId`, `mensagem`, `perfil`, `geradoPorIA`, `locaisConsiderados` e `criadaEm`. O Mobile apresenta o texto, o perfil, a data e os IDs dos locais considerados sem inferir nome, disponibilidade ou segurança. `geradoPorIA: true` identifica conteúdo gerado com Gemini; `false` identifica o fallback automático local e continua sendo um resultado válido.
-
-Ao abrir o detalhe de uma ocorrência, o aplicativo consulta a primeira página imediatamente. Se `content` estiver vazio, repete a leitura após 1, 2, 3 e sucessivos intervalos de até 5 segundos, respeitando um teto total aproximado de 30 segundos. O polling encerra ao encontrar uma orientação, ao receber qualquer erro ou ao atingir o limite. Um `AbortController` cancela temporizadores e a requisição atual quando a tela é fechada, o ID muda ou a sessão termina.
-
-Depois do limite, a interface informa “Orientação ainda indisponível. Você pode tentar novamente mais tarde.” A atualização manual executa uma única leitura e nunca reinicia geração. Orientações anteriores podem ser carregadas por paginação. Página vazia não é apresentada como falha da IA porque o backend não expõe status de processamento.
-
-O endpoint `POST /api/ai/ocorrencias/{id}/orientacao` existe no backend e pode criar uma nova orientação a cada chamada, mas não é utilizado pelo Mobile neste incremento. Polling, refresh e tratamento de erro fazem exclusivamente `GET`. O aplicativo também nunca acessa Gemini diretamente e reutiliza somente o JWT Java existente.
-
-Toda orientação é marcada como conteúdo informativo. Ela não é apresentada como alerta oficial e não substitui instruções da Defesa Civil.
-
-## Locais seguros
-
-Endpoints públicos consumidos na API Java:
-
-```text
-GET /api/locais-seguros?page=0&size=10&sort=nome,asc
-GET /api/locais-seguros/{id}
-```
-
-A listagem lê `content` da página Spring, mostra dez locais por vez em ordem alfabética e oferece refresh e “Carregar mais”. O detalhe apresenta somente nome, tipo, endereço, descrição e coordenadas retornados pela API. O botão de mapa abre uma URL externa com latitude e longitude; disponibilidade, capacidade, acessibilidade e outros atributos não são inferidos.
-
-Uma resposta sem itens gera o estado vazio “Nenhum local encontrado”. Falhas de configuração, rede, timeout e `404` no detalhe possuem mensagens próprias e retry manual.
-
-## Alertas públicos
-
-Endpoints públicos consumidos na API .NET:
-
-```text
-GET /api/v1/alertas
-GET /api/v1/alertas/{id}
-```
-
-O serviço retorna um array com alertas publicados, ativos e não expirados. A interface exibe título, mensagem, fonte informada, status e datas formatadas em português. Marcadores de demonstração aparecem somente quando título, mensagem ou fonte se identificam explicitamente como demo, simulação ou conteúdo fictício. A fonte é apresentada como informação da API, sem inferir autoridade que o contrato não declare.
-
-O cliente .NET é público e isolado: nunca recebe o JWT da sessão Java. A ausência de alertas gera estado vazio; `404`, rede, timeout e `429 Too Many Requests` geram mensagens claras com retry manual. Sem a API .NET disponível, a tela não exibe alertas locais ou mocks.
-
-## Execução
-
-```bash
-npm start
-npm run android
-npm run ios
-npm run web
-```
-
-O comando para iOS requer macOS e Xcode. O suporte web pode exigir dependências adicionais do Expo e não é o alvo principal deste incremento.
-
-## APK Android de entrega (EAS)
-
-O projeto Expo vinculado é `@murilomacedosilva/refugio-360` (ID em `app.json`); o identificador Android é `br.com.fiap.refugio360` e a versão é `0.1.0`. `eas.json` usa o perfil **`preview`**, `distribution: internal`, `android.buildType: apk`, assinatura gerenciada pelo EAS e as duas URLs públicas HTTPS. Não exige Metro ou Expo Go depois de instalado.
-
-Antes do build, execute `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test`, `npx expo-doctor`, `npx expo install --check` e `npx expo export --platform android` (o export local usa o `.env`). **Revise, faça commit das alterações e mantenha o Git limpo**: `cli.requireCommit=true` impede embutir um hash antigo em um APK com alterações não commitadas. O `app.config.js` consulta `git rev-parse HEAD` no checkout usado pelo EAS e grava o SHA completo em `extra.buildCommit`, lido pela tela Sobre via `expo-constants`. Não escreva esse SHA manualmente em um arquivo versionado: isso mudaria o próprio commit. Após instalar, compare o valor exibido em Sobre com o commit do build na página EAS e com `git rev-parse HEAD` do commit enviado. Em Expo Go, a tela identifica a execução como desenvolvimento em vez de atribuir o APK a um commit não compilado.
+O projeto está vinculado a `@murilomacedosilva/refugio-360`. Antes de solicitar um build, mantenha o Git limpo: `cli.requireCommit=true`. `app.config.js` injeta em `extra.buildCommit` o SHA completo do checkout Git, que a tela **Sobre** apresenta junto da versão; no Expo Go ela não atribui ao desenvolvimento o commit de um APK. Compare esse SHA com o commit indicado na página do build EAS.
 
 ```bash
 eas project:info --non-interactive
-eas build --platform android --profile preview --wait
+eas build --platform android --profile preview
 ```
 
-Na primeira execução, siga a interação do EAS para criar ou selecionar a **keystore Android remota**; não registre material de assinatura no Git. Quando o build terminar com status `finished`, use o link real do artefato `.apk` indicado pelo EAS, baixe-o no Android e permita a instalação de apps dessa origem quando solicitado. Confirme que o aplicativo abre sem Expo Go, mostra os dados DEMO das APIs e exibe versão e SHA na tela Sobre. Para inspecionar builds existentes, use `eas build:list --platform android`; não presuma que um APK existe antes de o build concluir.
+Na primeira compilação, o EAS pode solicitar a criação/seleção da keystore remota. Acompanhe o status no painel do projeto ou com `eas build:list --platform android`. **No momento desta revisão, o build do perfil `preview` está na fila; ainda não há APK ou link de artefato concluído.** Após finalizar, obtenha o `.apk` na página do build, baixe-o no Android, autorize a instalação por essa origem quando o sistema solicitar e confirme as telas e o SHA na versão instalada.
 
-Serviços gratuitos do Render podem levar alguns instantes para acordar. Se uma consulta exceder o timeout do cliente, use o retry manual da tela; orientações automáticas dependem do RabbitMQ no Java e podem não aparecer. H2 e SQLite nos planos gratuitos não garantem persistência após reinício/redeploy.
+## 🎬 Demonstração em vídeo
 
-## Qualidade
+**[Vídeo de demonstração — adicionar link após publicação]**
 
-```bash
-npm run typecheck
-npm run lint
-npm test
-npm run format:check
-npm run format
-```
+O vídeo técnico do Mobile ainda não possui URL informada. O vídeo Pitch de outra parte da solução não é apresentado como demonstração deste aplicativo.
 
-Os testes usam Jest e Axios Mock Adapter. Eles não dependem de credenciais, rede ou serviços externos.
+## Equipe e responsabilidade
 
-## Navegação
+- **Instituição:** FIAP
+- **Entrega:** Global Solution 2026/2
+- **Curso:** _preencher curso_
+- **Grupo:** _preencher nome/número do grupo_
 
-Área pública:
+Integrantes e RMs registrados na documentação da API Java do mesmo projeto:
 
-- Login
-- Cadastro
-- Sobre
+| Integrante                    | RM     |
+| ----------------------------- | ------ |
+| Gabriely Bonfim Silva         | 566242 |
+| Henrique Rodrigues Vespasiano | 562917 |
+| Mirelly Sousa Alves           | 566299 |
+| Ruan Luca Feliciano           | 562218 |
+| Murilo Macedo Silva           | 566462 |
 
-Área principal:
-
-- Início
-- Minhas ocorrências
-- Locais seguros
-- Alertas
-- Perfil
-- Sobre
-
-A sessão autenticada troca automaticamente o fluxo público pela área principal. Durante a restauração, uma tela de carregamento impede flashes de conteúdo protegido. O modo de visualização permanece disponível somente em desenvolvimento.
-
-## Limitações
-
-- Não existe refresh token.
-- O logout é local; um token copiado continua válido no servidor até expirar.
-- Não há recuperação ou alteração de senha.
-- Não há edição de perfil.
-- Ocorrências ainda não podem ser editadas ou excluídas pelo cidadão.
-- `GET /api/ocorrencias/{id}` retorna `200` para qualquer cidadão autenticado, mesmo quando a ocorrência pertence a outro usuário. `/api/ocorrencias/minhas` isola os usuários corretamente, e o Mobile só abre IDs vindos dessa lista, mas a autorização precisa ser corrigida no Java.
-- Tokens inválidos ou expirados podem retornar `401` sem corpo; o Mobile trata a sessão pelo código HTTP.
-- A API não retorna data de criação da ocorrência.
-- A API não expõe estado pendente ou falha da geração de orientação; o Mobile só distingue resultado disponível, espera limitada, timeout e erro HTTP/rede.
-- Sem RabbitMQ, uma ocorrência nova pode permanecer sem orientação automática. O Mobile não chama o endpoint manual de geração para compensar essa ausência.
-- Os locais considerados em uma orientação são retornados apenas como IDs; o detalhe não afirma que estejam abertos, disponíveis ou seguros.
-- Coordenadas são informadas manualmente; não há GPS automático.
-- As telas de dados exibem estados informativos, não mocks.
-- A abertura de mapas depende de um aplicativo ou navegador capaz de tratar a URL externa.
-- Com o seed .NET explicitamente habilitado, o serviço inclui conteúdo acadêmico fictício claramente rotulado; ele não representa um alerta real.
-- Não há configuração do Firebase App Distribution.
-- O aplicativo foi validado em dispositivo físico com Expo Go. A instalação e validação do APK independente permanecem pendentes até a conclusão do EAS Build.
-
-## Próximos passos
-
-1. Concluir o EAS Build do perfil `preview` após registrar as alterações em commit.
-2. Instalar o APK e repetir o fluxo visual completo em aparelho físico.
-3. Validar visualmente a geração assíncrona com RabbitMQ e uma ocorrência descartável.
-4. Conectar edição e exclusão quando as permissões Java estiverem prontas.
-5. Preparar Firebase App Distribution em etapa posterior, se necessário.
+> **Responsabilidade:** protótipo acadêmico com dados DEMO fictícios. Não substitui Defesa Civil, bombeiros, serviços médicos nem outros canais oficiais de emergência. Confirme informações de locais e alertas em fontes oficiais antes de agir.
